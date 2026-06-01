@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+
+{% block title %}Browse Virtual Numbers - Shadow SMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .numbers-header {
+        text-align: center;
+        padding: 40px 0 30px;
+    }
+    .numbers-header h1 {
+        font-size: 36px;
+        font-weight: 800;
+        margin-bottom: 12px;
+    }
+    .numbers-header p {
+        color: var(--text-muted);
+        font-size: 16px;
+    }
+
+    /* Filters */
+    .filters {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .search-box {
+        flex: 1;
+        min-width: 250px;
+        position: relative;
+    }
+    .search-box i {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+    }
+    .search-box input {
+        padding-left: 48px;
+    }
+    .country-filter {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .filter-chip {
+        padding: 10px 18px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .filter-chip:hover, .filter-chip.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+    }
+
+    /* Numbers Grid */
+    .numbers-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 20px;
+    }
+    .number-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 24px;
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+    }
+    .number-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: var(--gradient-1);
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    .number-card:hover {
+        transform: translateY(-5px);
+        border-color: rgba(99, 102, 241, 0.3);
+        box-shadow: var(--shadow);
+    }
+    .number-card:hover::before {
+        opacity: 1;
+    }
+    .number-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+    }
+    .number-country {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .number-country .flag {
+        font-size: 28px;
+    }
+    .number-country .name {
+        font-weight: 600;
+        font-size: 14px;
+    }
+    .number-phone {
+        font-size: 22px;
+        font-weight: 700;
+        font-family: 'SF Mono', monospace;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        background: var(--gradient-1);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .number-meta {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .number-actions {
+        display: flex;
+        gap: 10px;
+    }
+    .number-actions .btn {
+        flex: 1;
+    }
+
+    /* Loading skeleton */
+    .skeleton {
+        background: linear-gradient(90deg, var(--bg-light) 25%, var(--bg-hover) 50%, var(--bg-light) 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 12px;
+    }
+
+    /* Empty state */
+    .empty-state {
+        text-align: center;
+        padding: 80px 20px;
+    }
+    .empty-state i {
+        font-size: 64px;
+        color: var(--border);
+        margin-bottom: 20px;
+    }
+    .empty-state h3 {
+        font-size: 22px;
+        margin-bottom: 10px;
+    }
+    .empty-state p {
+        color: var(--text-muted);
+    }
+
+    /* Pagination */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 40px;
+    }
+    .page-btn {
+        width: 44px; height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        color: var(--text);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .page-btn:hover, .page-btn.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+    }
+
+    /* Copy animation */
+    @keyframes copyPop {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+    .copy-pop {
+        animation: copyPop 0.3s ease-out;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="numbers-header">
+    <h1>Virtual Phone Numbers</h1>
+    <p>Browse and select from our collection of free virtual numbers</p>
+</div>
+
+<div class="filters">
+    <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" class="form-input" id="searchInput" placeholder="Search by number or country...">
+    </div>
+</div>
+
+<div class="country-filter" id="countryFilter">
+    <div class="filter-chip active" data-country="all">
+        <i class="fas fa-globe"></i> All Countries
+    </div>
+    <div class="filter-chip" data-country="US">🇺🇸 US</div>
+    <div class="filter-chip" data-country="GB">🇬🇧 UK</div>
+    <div class="filter-chip" data-country="CA">🇨🇦 CA</div>
+    <div class="filter-chip" data-country="AU">🇦🇺 AU</div>
+    <div class="filter-chip" data-country="DE">🇩🇪 DE</div>
+    <div class="filter-chip" data-country="FR">🇫🇷 FR</div>
+    <div class="filter-chip" data-country="IN">🇮🇳 IN</div>
+    <div class="filter-chip" data-country="PK">🇵🇰 PK</div>
+    <div class="filter-chip" data-country="AE">🇦🇪 AE</div>
+    <div class="filter-chip" data-country="SA">🇸🇦 SA</div>
+    <div class="filter-chip" data-country="TR">🇹🇷 TR</div>
+    <div class="filter-chip" data-country="JP">🇯🇵 JP</div>
+</div>
+
+<div class="numbers-grid" id="numbersGrid">
+    <!-- Numbers loaded via JS -->
+</div>
+
+<div class="pagination" id="pagination">
+    <!-- Pagination loaded via JS -->
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let allNumbers = [];
+    let filteredNumbers = [];
+    let currentPage = 1;
+    const itemsPerPage = 12;
+    let currentCountry = 'all';
+    let searchQuery = '';
+
+    // Fetch numbers from API
+    async function loadNumbers() {
+        try {
+            const response = await fetch('/api/numbers');
+            allNumbers = await response.json();
+            filterNumbers();
+        } catch (error) {
+            console.error('Error loading numbers:', error);
+            document.getElementById('numbersGrid').innerHTML = `
+                <div class="empty-state" style="grid-column: 1/-1;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to load numbers</h3>
+                    <p>Please refresh the page to try again</p>
+                </div>
+            `;
+        }
+    }
+
+    function filterNumbers() {
+        filteredNumbers = allNumbers.filter(n => {
+            const matchCountry = currentCountry === 'all' || n.code === currentCountry;
+            const matchSearch = !searchQuery || 
+                n.number.toLowerCase().includes(searchQuery) || 
+                n.country.toLowerCase().includes(searchQuery);
+            return matchCountry && matchSearch;
+        });
+        currentPage = 1;
+        renderNumbers();
+        renderPagination();
+    }
+
+    function renderNumbers() {
+        const grid = document.getElementById('numbersGrid');
+        const start = (currentPage - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        const pageNumbers = filteredNumbers.slice(start, end);
+
+        if (pageNumbers.length === 0) {
+            grid.innerHTML = `
+                <div class="empty-state" style="grid-column: 1/-1;">
+                    <i class="fas fa-search"></i>
+                    <h3>No numbers found</h3>
+                    <p>Try adjusting your search or filter criteria</p>
+                </div>
+            `;
+            return;
+        }
+
+        grid.innerHTML = pageNumbers.map(num => `
+            <div class="number-card animate-fade-in">
+                <div class="number-header">
+                    <div class="number-country">
+                        <span class="flag">${num.flag}</span>
+                        <span class="name">${num.country}</span>
+                    </div>
+                    <span class="badge ${num.status.includes('Active') ? 'badge-success' : 'badge-warning'}">
+                        ${num.status}
+                    </span>
+                </div>
+                <div class="number-phone">${num.number}</div>
+                <div class="number-meta">
+                    <span class="badge badge-secondary" style="background: var(--bg-hover); color: var(--text-muted);">
+                        <i class="fas fa-tag"></i> ${num.type}
+                    </span>
+                    <span class="badge badge-secondary" style="background: var(--bg-hover); color: var(--text-muted);">
+                        <i class="fas fa-hashtag"></i> ID: ${num.id}
+                    </span>
+                </div>
+                <div class="number-actions">
+                    <button class="btn btn-primary btn-sm" onclick="copyNumber('${num.number}', this)">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                    <a href="https://wa.me/${num.number.replace(/\D/g,'')}" target="_blank" class="btn btn-secondary btn-sm">
+                        <i class="fab fa-whatsapp"></i> WhatsApp
+                    </a>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderPagination() {
+        const totalPages = Math.ceil(filteredNumbers.length / itemsPerPage);
+        const pagination = document.getElementById('pagination');
+
+        if (totalPages <= 1) {
+            pagination.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+
+        // Prev
+        html += `<button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled style="opacity:0.3"' : ''}>
+            <i class="fas fa-chevron-left"></i>
+        </button>`;
+
+        // Pages
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+            } else if (i === currentPage - 2 || i === currentPage + 2) {
+                html += `<span style="color: var(--text-muted); padding: 10px;">...</span>`;
+            }
+        }
+
+        // Next
+        html += `<button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled style="opacity:0.3"' : ''}>
+            <i class="fas fa-chevron-right"></i>
+        </button>`;
+
+        pagination.innerHTML = html;
+    }
+
+    function goToPage(page) {
+        const totalPages = Math.ceil(filteredNumbers.length / itemsPerPage);
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        renderNumbers();
+        renderPagination();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function copyNumber(number, btn) {
+        navigator.clipboard.writeText(number).then(() => {
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            btn.classList.add('copy-pop');
+            showToast('Number Copied!', `${number} copied to clipboard`, 'success');
+            setTimeout(() => {
+                btn.innerHTML = original;
+                btn.classList.remove('copy-pop');
+            }, 2000);
+        });
+    }
+
+    // Event Listeners
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        searchQuery = e.target.value.toLowerCase();
+        filterNumbers();
+    });
+
+    document.getElementById('countryFilter').addEventListener('click', (e) => {
+        const chip = e.target.closest('.filter-chip');
+        if (!chip) return;
+
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        currentCountry = chip.dataset.country;
+        filterNumbers();
+    });
+
+    // Load on page load
+    loadNumbers();
+
+    // Check URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const countryParam = urlParams.get('country');
+    if (countryParam) {
+        const chip = document.querySelector(`[data-country="${countryParam}"]`);
+        if (chip) {
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            currentCountry = countryParam;
+        }
+    }
+</script>
+{% endblock %}
